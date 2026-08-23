@@ -1,0 +1,82 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'home_screen.dart';
+import 'services/battery_service.dart';
+import 'services/notification_service.dart';
+import 'theme/app_theme.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Portrait only, transparent status bar with dark icons (light theme).
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    systemNavigationBarColor: AppColors.background,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  ));
+
+  final battery = BatteryService();
+  await battery.start();
+
+  final notifier = NotificationService(battery);
+  await notifier.init();
+
+  runApp(VoltaApp(battery: battery));
+}
+
+class VoltaApp extends StatelessWidget {
+  final BatteryService battery;
+  const VoltaApp({super.key, required this.battery});
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider<BatteryService>.value(
+      value: battery,
+      child: MaterialApp(
+        title: 'Volta',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light(),
+        home: const _Splash(),
+      ),
+    );
+  }
+}
+
+/// 600 ms wordmark splash, then fade to HomeScreen.
+class _Splash extends StatefulWidget {
+  const _Splash();
+
+  @override
+  State<_Splash> createState() => _SplashState();
+}
+
+class _SplashState extends State<_Splash> {
+  bool _done = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) setState(() => _done = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      child: _done
+          ? const HomeScreen()
+          : Container(
+              key: const ValueKey('splash'),
+              color: AppColors.background,
+              alignment: Alignment.center,
+              child: Text('VOLTA', style: AppTheme.wordmark),
+            ),
+    );
+  }
+}
+
